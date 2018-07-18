@@ -1,0 +1,69 @@
+[general]
+# dns interface
+listen = ":53"
+# protocol, "udp", "udp4", "udp6" or "tcp", "tcp4", "tcp6"
+protocol = "udp"
+# domain name to serve the requests off of
+domain = "{{_r_acmedns_host}}"
+# zone name server
+nsname = "ns1.{{_r_acmedns_host}}"
+# admin email address, where @ is substituted with .
+nsadmin = "{{_r_acmedns_host}}"
+# predefined records served in addition to the TXT
+records = [
+    # default A
+    "{{_r_acmedns_host}}. A {{_r_acmedns_ns1_ip}}",
+    # A
+    "ns1.{{_r_acmedns_host}}. A {{_r_acmedns_ns1_ip}}",
+    "ns2.{{_r_acmedns_host}}. A {{_r_acmedns_ns2_ip}}",
+    # NS
+    "{{_r_acmedns_host}}. NS ns1.{{_r_acmedns_host}}.",
+    "{{_r_acmedns_host}}. NS ns2.{{_r_acmedns_host}}.",
+]
+# debug messages from CORS etc
+debug = false
+
+[database]
+# Database engine to use, sqlite3 or postgres
+engine = "sqlite3"
+# Connection string, filename for sqlite3 and postgres://$username:$password@$host/$db_name for postgres
+# Please note that the default Docker image uses path /var/lib/acme-dns/acme-dns.db for sqlite3
+connection = "/var/lib/acme-dns/acme-dns.db"
+# connection = "postgres://user:password@localhost/acmedns_db"
+
+[api]
+# domain name to listen requests for, mandatory if using tls = "letsencrypt"
+api_domain = "{{_r_acmedns_host}}"
+# listen ip eg. 127.0.0.1
+ip = "0.0.0.0"
+# disable registration endpoint
+disable_registration = false
+# autocert HTTP port, eg. 80 for answering Let's Encrypt HTTP-01 challenges. Mandatory if using tls = "letsencrypt".
+autocert_port = "19980"
+# listen port, eg. 443 for default HTTPS
+port = "19943"
+# possible values: "letsencrypt", "cert", "none"
+tls = "none"
+# only used if tls = "cert"
+tls_cert_privkey = "/etc/tls/example.org/privkey.pem"
+tls_cert_fullchain = "/etc/tls/example.org/fullchain.pem"
+# only used if tls = "letsencrypt"
+acme_cache_dir = "api-certs"
+# CORS AllowOrigins, wildcards can be used
+corsorigins = [
+    "*"
+]
+# use HTTP header to get the client ip
+use_header = false
+# header name to pull the ip address / list of ip addresses from
+header_name = "X-Forwarded-For"
+
+[logconfig]
+# logging level: "error", "warning", "info" or "debug"
+loglevel = "debug"
+# possible values: stdout, TODO file & integrations
+logtype = "stdout"
+# file path for logfile TODO
+# logfile = "./acme-dns.log"
+# format, either "json" or "text"
+logformat = "text"

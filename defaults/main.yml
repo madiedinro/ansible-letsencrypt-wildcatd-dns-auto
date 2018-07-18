@@ -1,0 +1,10 @@
+---
+_r_domains: []
+#  - email: '{{contact_email}}'
+#    domain: ""
+#    wildcard: yes
+#    subdomains: ['api', 'huyapi']
+_r_pause_services: []
+_r_acmedns_host: auth.acme-dns.io
+_r_acmedns_api: https://auth.acme-dns.io
+_r_acmedns_setup_dns: no

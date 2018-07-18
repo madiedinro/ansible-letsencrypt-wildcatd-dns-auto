@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  author: Dmitry Rodin
+  description: Ansible role containing complete acme dns challenge.
+  company: Rodin
+  license: MIT
+  min_ansible_version: 2.5
+  platforms:
+  - name: Ubuntu
+    versions:
+    - xenial
+    - trusty
+  galaxy_tags:
+    - networking
+dependencies: []

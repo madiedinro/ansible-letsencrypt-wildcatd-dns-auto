@@ -1,0 +1,111 @@
+---
+- name: Ensures that all requires paths exists
+  file:
+    state: directory
+    path: "{{item}}"
+  with_items:
+    - "{{_r_acmedns_data_dir}}"
+    - "{{_r_acmedns_config_dir}}"
+    - "{{_r_acmesh_config_dir}}"
+    
+- block:
+
+  - name: Generating config for acme-dns
+    template:
+      dest: "{{_r_acmedns_config_dir}}/config.cfg"
+      src: "config.cfg.j2"
+      force: yes
+  - name: Building acmedns image
+    include_role:
+      name: dr.docker-container
+    vars:
+      drdc_name: acmedns
+      drdc_repo: https://github.com/joohoi/acme-dns.git
+      drdc_net_mode: 'host'
+      drdc_memory_limit: '100m'
+      drdc_volumes: 
+        - "{{_r_acmedns_data_dir}}:/var/lib/acme-dns"
+        - "{{_r_acmedns_config_dir}}:/etc/acme-dns:ro"
+    tags: ['acmedns']
+  when: '_r_acmedns_setup_dns == True'
+
+
+
+- name: Read configuration acme.sh
+  block:
+    - name: Reading remote configuration
+      command: 'cat {{_r_acmesh_config_file}}'
+      register: cat_asmesh
+      ignore_errors: yes
+    - name: Handling remote configuration
+      set_fact: 
+        acmesh_config: "{{ cat_asmesh.stdout | from_yaml}}"
+      when: 'cat_asmesh is succeeded'
+  rescue:
+    - debug: msg="Cant read config"
+  always: []
+  when: 'acmesh_config is not defined'
+
+- debug: var=acmesh_config
+
+- name: Registration
+  block:
+  - name: Initialize registration process
+    uri: url="{{_r_acmedns_api}}/register" method=POST return_content=yes body_format=json status_code=201
+    register: reg_result
+  - debug: var=reg_result
+  - set_fact:
+      acmesh_config: "{{reg_result.json}}"  
+  - name: Saving registration data
+    vars:
+      acmesh_json: "{{reg_result.json|to_nice_yaml(indent=8) }}"
+    template:
+      dest: "{{_r_acmesh_config_file}}"
+      src: "acmesh.json.j2"
+  when: 'acmesh_config is not defined'
+
+
+- debug: var=acmesh_config
+
+- name: Stopping Services
+  service: name="{{item}}" state=stopped
+  with_items: "{{ _r_pause_services }}"
+  ignore_errors: yes
+  register: _services_stopped
+
+- block:
+  - file:
+      path: "{{dirs.acmesh}}/acme.sh.log"
+  - name: Executing acme.sh 
+    docker_container:
+      name: acmesh
+      image: "madiedinro/acmesh"
+      env: 
+        ACMEDNS_UPDATE_URL: "{{_r_acmedns_api}}/update"
+        ACMEDNS_USERNAME: "{{acmesh_config.username}}"
+        ACMEDNS_PASSWORD: "{{acmesh_config.password}}"
+        ACMEDNS_SUBDOMAIN: "{{acmesh_config.subdomain}}"
+      volumes: 
+        - "{{_r_acmesh_host_cert_root}}/{{domain}}/:{{_r_acmesh_dock_cert_root}}/{{domain}}"
+        - "{{dirs.acmesh}}/acme.sh.log:/acme.sh/acme.sh.log"
+      # auto_remove: yes
+      cleanup: yes
+      detach: false
+      command: ' --issue -d {{item.domain}} -d "*.{{item.domain}}" --dns dns_acmedns --log'
+    register: acmesh_result
+  vars:
+    item: "{{_r_domains[0]}}"
+    # wildcard_param: "-d {{item.domain}} -d '*.{{item.domain}}'"
+    # reqular_param: " {% for subdom in item.subdomains %} -d {{subdom}} {% endfor %}"
+  
+
+- debug: msg={{acmesh_result.ansible_facts.docker_container.Output.split('\n')}}
+
+- name: Starting paused Services
+  service: name="{{item.item}}" state=started
+  when: (item.state is defined and item.state == "stopped")
+  with_items: "{{ _services_stopped.results|default([]) }}"
+  ignore_errors: yes
+
+#- fail: msg="Error signing the certificate"
+#  when: not letsencrypt_test and not _signing_successful and not _signing_skipped
