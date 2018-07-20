@@ -5,3 +5,7 @@ _r_acmedns_config_dir: /etc/acmedns
 _r_acmedns_data_dir: /var/lib/acmedns
 _r_acmesh_config_dir: /var/lib/acmesh
 _r_acmesh_config_file: "{{_r_acmesh_config_dir}}/acmesh.yml"
+_r_ensure_paths:
+  - "{{_r_acmedns_data_dir}}"
+  - "{{_r_acmedns_config_dir}}"
+  - "{{_r_acmesh_config_dir}}"

@@ -1,15 +1,9 @@
 ---
-- name: Ensures that all requires paths exists
-  file:
-    state: directory
-    path: "{{item}}"
-  with_items:
-    - "{{_r_acmedns_data_dir}}"
-    - "{{_r_acmedns_config_dir}}"
-    - "{{_r_acmesh_config_dir}}"
-    
-- block:
 
+- import_tasks: "tasks/ensure.yml"
+
+
+- block:
   - name: Generating config for acme-dns
     template:
       dest: "{{_r_acmedns_config_dir}}/config.cfg"
@@ -30,7 +24,6 @@
   when: '_r_acmedns_setup_dns == True'
 
 
-
 - name: Read configuration acme.sh
   block:
     - name: Reading remote configuration
@@ -46,22 +39,11 @@
   always: []
   when: 'acmesh_config is not defined'
 
+
 - debug: var=acmesh_config
 
-- name: Registration
-  block:
-  - name: Initialize registration process
-    uri: url="{{_r_acmedns_api}}/register" method=POST return_content=yes body_format=json status_code=201
-    register: reg_result
-  - debug: var=reg_result
-  - set_fact:
-      acmesh_config: "{{reg_result.json}}"  
-  - name: Saving registration data
-    vars:
-      acmesh_json: "{{reg_result.json|to_nice_yaml(indent=8) }}"
-    template:
-      dest: "{{_r_acmesh_config_file}}"
-      src: "acmesh.json.j2"
+
+- import_tasks: "tasks/register.yml"
   when: 'acmesh_config is not defined'
 
 
@@ -91,7 +73,7 @@
       # auto_remove: yes
       cleanup: yes
       detach: false
-      command: ' --issue -d {{item.domain}} -d "*.{{item.domain}}" --dns dns_acmedns --log'
+      command: ' --issue -d {{item.domain}} -d "*.{{item.domain}}" --dns dns_acmedns --dnssleep 15 --log'
     register: acmesh_result
   vars:
     item: "{{_r_domains[0]}}"
@@ -109,3 +91,4 @@
 
 #- fail: msg="Error signing the certificate"
 #  when: not letsencrypt_test and not _signing_successful and not _signing_skipped
+

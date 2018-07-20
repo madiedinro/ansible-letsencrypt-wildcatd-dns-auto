@@ -1,0 +1,7 @@
+---
+- name: Ensures that all requires paths exists
+  file:
+    state: directory
+    path: "{{item}}"
+  with_items: "{{_r_ensure_paths}}"
+

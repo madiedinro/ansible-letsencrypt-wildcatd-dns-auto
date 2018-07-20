@@ -1,0 +1,16 @@
+
+- name: Registration
+  block:
+  - name: Initialize registration process
+    uri: url="{{_r_acmedns_api}}/register" method=POST return_content=yes body_format=json status_code=201
+    register: reg_result
+  - debug: var=reg_result
+  - set_fact:
+      acmesh_config: "{{reg_result.json}}"  
+  - name: Saving registration data
+    vars:
+      acmesh_json: "{{reg_result.json|to_nice_yaml(indent=8) }}"
+    template:
+      dest: "{{_r_acmesh_config_file}}"
+      src: "acmesh.json.j2"
+  
