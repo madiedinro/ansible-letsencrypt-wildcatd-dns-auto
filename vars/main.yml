@@ -3,8 +3,8 @@ _r_acmesh_dock_cert_root: /acme.sh
 _r_acmesh_host_cert_root: /etc/nginx/ssl
 _r_acmedns_config_dir: /etc/acmedns
 _r_acmedns_data_dir: /var/lib/acmedns
-_r_acmesh_config_dir: /var/lib/acmesh
-_r_acmesh_config_file: "{{_r_acmesh_config_dir}}/acmesh.yml"
+_r_acmesh_config_dir:
+_r_acmesh_regconfig: /etc/ansible/facts.d/acmedns.fact
 _r_ensure_paths:
   - "{{_r_acmedns_data_dir}}"
   - "{{_r_acmedns_config_dir}}"

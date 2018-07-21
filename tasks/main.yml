@@ -2,6 +2,9 @@
 
 - import_tasks: "tasks/ensure.yml"
 
+############################################################################################################
+######### AcmeDNS server setup
+############################################################################################################
 
 - block:
   - name: Generating config for acme-dns
@@ -20,42 +23,19 @@
       drdc_volumes: 
         - "{{_r_acmedns_data_dir}}:/var/lib/acme-dns"
         - "{{_r_acmedns_config_dir}}:/etc/acme-dns:ro"
-    tags: ['acmedns']
+  tags: ['acmedns']
   when: '_r_acmedns_setup_dns == True'
 
 
-- name: Read configuration acme.sh
-  block:
-    - name: Reading remote configuration
-      command: 'cat {{_r_acmesh_config_file}}'
-      register: cat_asmesh
-      ignore_errors: yes
-    - name: Handling remote configuration
-      set_fact: 
-        acmesh_config: "{{ cat_asmesh.stdout | from_yaml}}"
-      when: 'cat_asmesh is succeeded'
-  rescue:
-    - debug: msg="Cant read config"
-  always: []
-  when: 'acmesh_config is not defined'
+############################################################################################################
+######### AcmeDNS configuration
+############################################################################################################
 
-
-- debug: var=acmesh_config
-
-
-- import_tasks: "tasks/register.yml"
-  when: 'acmesh_config is not defined'
-
-
-- debug: var=acmesh_config
-
-- name: Stopping Services
-  service: name="{{item}}" state=stopped
-  with_items: "{{ _r_pause_services }}"
-  ignore_errors: yes
-  register: _services_stopped
 
 - block:
+
+  - import_tasks: "tasks/register.yml"
+    when: "loc_gen.subdomain is not defined"
   - file:
       path: "{{dirs.acmesh}}/acme.sh.log"
   - name: Executing acme.sh 
@@ -64,9 +44,9 @@
       image: "madiedinro/acmesh"
       env: 
         ACMEDNS_UPDATE_URL: "{{_r_acmedns_api}}/update"
-        ACMEDNS_USERNAME: "{{acmesh_config.username}}"
-        ACMEDNS_PASSWORD: "{{acmesh_config.password}}"
-        ACMEDNS_SUBDOMAIN: "{{acmesh_config.subdomain}}"
+        ACMEDNS_USERNAME: "{{loc_gen.username}}"
+        ACMEDNS_PASSWORD: "{{loc_gen.password}}"
+        ACMEDNS_SUBDOMAIN: "{{loc_gen.subdomain}}"
       volumes: 
         - "{{_r_acmesh_host_cert_root}}/{{domain}}/:{{_r_acmesh_dock_cert_root}}/{{domain}}"
         - "{{dirs.acmesh}}/acme.sh.log:/acme.sh/acme.sh.log"
@@ -77,18 +57,11 @@
     register: acmesh_result
   vars:
     item: "{{_r_domains[0]}}"
-    # wildcard_param: "-d {{item.domain}} -d '*.{{item.domain}}'"
-    # reqular_param: " {% for subdom in item.subdomains %} -d {{subdom}} {% endfor %}"
-  
+    loc_acmedns: "{{ ansible_local.acmedns|default({}) }}"
+    loc_gen: "{{ loc_acmedns.general|default({}) }}"
+
+- service:
+    name: nginx
+    state: restarted
 
 - debug: msg={{acmesh_result.ansible_facts.docker_container.Output.split('\n')}}
-
-- name: Starting paused Services
-  service: name="{{item.item}}" state=started
-  when: (item.state is defined and item.state == "stopped")
-  with_items: "{{ _services_stopped.results|default([]) }}"
-  ignore_errors: yes
-
-#- fail: msg="Error signing the certificate"
-#  when: not letsencrypt_test and not _signing_successful and not _signing_skipped
-
