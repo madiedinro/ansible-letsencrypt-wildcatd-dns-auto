@@ -36,7 +36,9 @@
 
   - import_tasks: "tasks/register.yml"
     when: "loc_gen.subdomain is not defined"
+    tags: ["acmech", "acmech-register"]
   - file:
+      state: touch
       path: "{{dirs.acmesh}}/acme.sh.log"
   - name: Executing acme.sh 
     docker_container:
@@ -59,9 +61,11 @@
     item: "{{_r_domains[0]}}"
     loc_acmedns: "{{ ansible_local.acmedns|default({}) }}"
     loc_gen: "{{ loc_acmedns.general|default({}) }}"
+  tags: ['acmech']
 
 - service:
     name: nginx
     state: restarted
+  failed_when: "{{ False }}"
 
 - debug: msg={{acmesh_result.ansible_facts.docker_container.Output.split('\n')}}
