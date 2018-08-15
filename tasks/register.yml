@@ -1,5 +1,3 @@
-
-
 - name: Initialize registration process
   uri: url="{{_r_acmedns_api}}/register" method=POST return_content=yes body_format=json status_code=201
   register: reg_result

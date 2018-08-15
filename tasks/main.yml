@@ -1,5 +1,4 @@
 ---
-
 - import_tasks: "tasks/ensure.yml"
 
 ############################################################################################################
@@ -24,7 +23,7 @@
         - "{{_r_acmedns_data_dir}}:/var/lib/acme-dns"
         - "{{_r_acmedns_config_dir}}:/etc/acme-dns:ro"
   tags: ['acmedns']
-  when: '_r_acmedns_setup_dns == True'
+  when: '_r_acmedns == True'
 
 
 ############################################################################################################
@@ -33,13 +32,25 @@
 
 
 - block:
-
   - import_tasks: "tasks/register.yml"
-    when: "loc_gen.subdomain is not defined"
+    when: "_r_register == True and loc_gen.subdomain is not defined"
     tags: ["acmech", "acmech-register"]
+  
+  - pause:
+      prompt: |
+        Add record to your dns and press enter
+        
+        n_acme-challenge.{{domain}}  CNAME  {{loc_gen.fulldomain}}
+
+  - command: "dig _acme-challenge.{{domain}} +short"
+    register: domain_check_result
+    failed_when: "loc_gen.fulldomain not in domain_check_result.stdout"
+    changed_when: False
+
   - file:
       state: touch
       path: "{{dirs.acmesh}}/acme.sh.log"
+    when: "_r_request == True"
   - name: Executing acme.sh 
     docker_container:
       name: acmesh
@@ -55,17 +66,13 @@
       # auto_remove: yes
       cleanup: yes
       detach: false
-      command: ' --issue -d {{item.domain}} -d "*.{{item.domain}}" --dns dns_acmedns --dnssleep 15 --log'
+      command: ' --issue -d {{item.domain}} -d "*.{{item.domain}}" --dns dns_acmedns --dnssleep 15 --force --log'
     register: acmesh_result
+    when: "_r_request == True"
   vars:
     item: "{{_r_domains[0]}}"
     loc_acmedns: "{{ ansible_local.acmedns|default({}) }}"
     loc_gen: "{{ loc_acmedns.general|default({}) }}"
-  tags: ['acmech']
-
-- service:
-    name: nginx
-    state: restarted
-  failed_when: "{{ False }}"
+  tags: ['acmesh']
 
 - debug: msg={{acmesh_result.ansible_facts.docker_container.Output.split('\n')}}

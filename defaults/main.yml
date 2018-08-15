@@ -7,4 +7,6 @@ _r_domains: []
 _r_pause_services: []
 _r_acmedns_host: auth.acme-dns.io
 _r_acmedns_api: https://auth.acme-dns.io
-_r_acmedns_setup_dns: no
+_r_register: yes
+_r_request: yes
+_r_acmedns: no
