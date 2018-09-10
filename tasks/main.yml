@@ -40,7 +40,7 @@
       prompt: |
         Add record to your dns and press enter
         
-        n_acme-challenge.{{domain}}  CNAME  {{loc_gen.fulldomain}}
+        _acme-challenge.{{domain}}  CNAME  {{loc_gen.fulldomain}}
 
   - command: "dig _acme-challenge.{{domain}} +short"
     register: domain_check_result
@@ -49,8 +49,9 @@
 
   - file:
       state: touch
-      path: "{{dirs.acmesh}}/acme.sh.log"
+      path: "{{_r_acmesh_log}}"
     when: "_r_request == True"
+
   - name: Executing acme.sh 
     docker_container:
       name: acmesh
@@ -62,7 +63,7 @@
         ACMEDNS_SUBDOMAIN: "{{loc_gen.subdomain}}"
       volumes: 
         - "{{_r_acmesh_host_cert_root}}/{{domain}}/:{{_r_acmesh_dock_cert_root}}/{{domain}}"
-        - "{{dirs.acmesh}}/acme.sh.log:/acme.sh/acme.sh.log"
+        - "{{_r_acmesh_log}}:/acme.sh/acme.sh.log"
       # auto_remove: yes
       cleanup: yes
       detach: false

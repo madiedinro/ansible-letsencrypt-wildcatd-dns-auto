@@ -1,6 +1,6 @@
 ---
 _r_acmesh_dock_cert_root: /acme.sh
-_r_acmesh_host_cert_root: /etc/nginx/ssl
+_r_acmesh_host_cert_root: /etc/nginx/certs
 _r_acmedns_config_dir: /etc/acmedns
 _r_acmedns_data_dir: /var/lib/acmedns
 _r_acmesh_config_dir:
@@ -9,3 +9,4 @@ _r_ensure_paths:
   - "{{_r_acmedns_data_dir}}"
   - "{{_r_acmedns_config_dir}}"
   - "{{_r_acmesh_config_dir}}"
+_r_acmesh_log: /var/log/acme.sh.log
