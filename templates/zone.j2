@@ -1,0 +1,17 @@
+*********************************************************
+
+Add following records to DNS of your domain
+
+--------------------------------------------------------
+
+{{item.domain}}             A      SERVER_IP
+*.{{item.domain}}           A      SERVER_IP
+_acme-challenge.{{domain}}  CNAME  {{loc_gen.fulldomain}}
+
+*********************************************************
+
+SERVER_IP - replace "SERVER_IP" with 
+accessible from internet IP of your server,
+for example 1.2.88.22
+
+*********************************************************

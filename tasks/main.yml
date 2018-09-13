@@ -7,7 +7,6 @@
   loop_control:
     loop_var: fn
 
-
 - block:
     - block:
         - block:
@@ -18,7 +17,7 @@
             - name: create directory for ansible custom facts
               file: state=directory recurse=yes path=/etc/ansible/facts.d
 
-            - debug: var=reg_result.json
+            - debug: var=res
 
             - template:
                 src: config.fact.j2
@@ -26,7 +25,6 @@
 
             - name: re-read facts after adding custom fact
               setup: filter=ansible_local
-
           vars:
             res: "{{reg_result.json}}"
             _facts_dict:
@@ -37,43 +35,35 @@
           when: "loc_gen.subdomain is not defined"
 
         - debug: var=loc_gen
-          
-        - pause:
-            prompt: |
-              *********************************************************
 
-              Add following records to DNS of your domain
-              
-              --------------------------------------------------------
-              
-              {{item.domain}}             A      SERVER_IP
-              *.{{item.domain}}           A      SERVER_IP
-              _acme-challenge.{{domain}}  CNAME  {{loc_gen.fulldomain}}
-
-              *********************************************************
-
-              SERVER_IP - replace "SERVER_IP" with 
-              accessible from internet IP of your server,
-              for example 8.8.8.8
-
-              *********************************************************
         - name: checking dns
           command: "dig _acme-challenge.{{item.domain}} +short"
-          register: domain_check_result
+          register: initial_domain_check
           changed_when: False
-          failed_when: "loc_gen.fulldomain not in domain_check_result.stdout"
-          retries: 5
-          delay: 30
+          failed_when: False
+        
+        # ##### DNS zone checking 
+        - block:
+            - pause:
+                prompt: "{{ lookup('template', 'zone.j2') }}"
+                
+            - name: checking dns
+              command: "dig _acme-challenge.{{item.domain}} +short"
+              register: domain_check_result
+              changed_when: False
+              failed_when: "False"
 
-        - fail:
-            msg: DNS record not found
-          when: "loc_gen.fulldomain not in domain_check_result.stdout"        
+            - fail:
+                msg: DNS record not found
+              when: "loc_gen.fulldomain not in domain_check_result.stdout"
+          
+          when: "loc_gen.fulldomain not in initial_domain_check.stdout"
+
       when: "_r_wildcard == True"
 
     - wait_for:
         host: 0.0.0.0
         port: 80
-        delay: 0
         timeout: 5
         msg: "Timeout waiting for 80 to respond"
       register: port_check
@@ -84,8 +74,6 @@
       docker_volume:
         name: acmesh
 
-    # - debug:
-    #     msg: "{{cmd}}"
     - file:
         state: directory
         path: "{{_r_cert_root}}/{{item.domain}}"
@@ -94,12 +82,13 @@
       docker_container:
         name: acmesh-request
         image: neilpang/acme.sh
-        env: "{{ _r_wildcard|ternary(acmedns_creds, {}) }}"
+        env: "{{auto_env}}"
         volumes: "{{vols}}"
+        networks: "{{_r_docker_networks}}"
         cleanup: yes
         detach: false
         command: "{{cmd}}"
-        ports: "{{_r_wildcard|ternary([],[detect_ports]) }}"
+        ports: "{{_r_wildcard|ternary([],[auto_ports]) }}"
       register: acmesh_result
       # failed_when: "'Cert success' not in acmesh_result.ansible_facts.docker_container.Output"
 
@@ -110,16 +99,20 @@
         image: neilpang/acme.sh
         restart_policy: on-failure
         restart: yes
+        labels: "{{_r_docker_labels}}"
+        networks: "{{_r_docker_networks}}"
+        ports: [ "{{expose_conf}}" ]
         pull: yes
         recreate: yes
-        env: "{{ _r_wildcard|ternary(acmedns_creds, {}) }}"
+        env: "{{auto_env}}"
         volumes: "{{vols}}"
         command: daemon
 
   vars:
-    cmd: " --issue {{_r_wildcard|ternary(_r_cmd_dns, _r_cmd_std)}} {{_r_cmd_dir}} {{_r_cmd_force}} "
+    auto_env: "{{ _r_wildcard|ternary(acmedns_creds, {}) }}"
+    cmd: " --issue {{_r_wildcard|ternary(_r_cmd_dns, _r_cmd_std)}} {{_r_cmd_dir}} {{_r_cmd_log}} {{_r_cmd_force}} "
     expose_conf: "{{_r_bind_addr}}:80"
-    detect_ports: "{{ port_check.failed|ternary('80:80', expose_conf) }}"
+    auto_ports: "{{ (port_check is failed)|ternary('80:80', expose_conf) }}"
     item:
       domain: "{{_r_domain}}"
       subdomains: "{{_r_subdomains}}"
