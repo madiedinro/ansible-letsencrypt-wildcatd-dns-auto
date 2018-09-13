@@ -1,12 +1,14 @@
 ---
-_r_acmesh_dock_cert_root: /acme.sh
-_r_acmesh_host_cert_root: /etc/nginx/certs
-_r_acmedns_config_dir: /etc/acmedns
-_r_acmedns_data_dir: /var/lib/acmedns
-_r_acmesh_config_dir:
-_r_acmesh_regconfig: /etc/ansible/facts.d/acmedns.fact
+_r_reg_data: /etc/ansible/facts.d/acmedns.fact
+_r_config_dir: /etc/acmesh
+_r_cert_root: "{{_r_config_dir}}/certs"
 _r_ensure_paths:
-  - "{{_r_acmedns_data_dir}}"
-  - "{{_r_acmedns_config_dir}}"
-  - "{{_r_acmesh_config_dir}}"
-_r_acmesh_log: /var/log/acme.sh.log
+  - "{{_r_config_dir}}"
+_r_key_fn: "priv.key"
+_r_cert_fn: "cert.cer"
+_r_fullchain_fn: "fullchain.cer"
+_r_cmd_dir: "--key-file /certs/{{item.domain}}/{{_r_key_fn}} --cert-file /certs/{{item.domain}}/{{_r_cert_fn}} --fullchain-file /certs/{{item.domain}}/{{_r_fullchain_fn}}"
+_r_cmd_dns: '-d {{item.domain}} --dns dns_acmedns --dnssleep 15 -d "*.{{item.domain}}" '
+_r_cmd_std: '-d {{item.domain}} --standalone {% for sd in item.subdomains %} -d {{sd}}.{{item.domain}} {% endfor %}'
+_r_cmd_force: "{{_r_force|ternary(' --force', '')}}"
+_r_cmd_log: "{{_r_log|ternary(' --log', '')}}"

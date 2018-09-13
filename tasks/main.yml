@@ -1,79 +1,136 @@
 ---
-- import_tasks: "tasks/ensure.yml"
-
-############################################################################################################
-######### AcmeDNS server setup
-############################################################################################################
-
-- block:
-  - name: Generating config for acme-dns
-    template:
-      dest: "{{_r_acmedns_config_dir}}/config.cfg"
-      src: "config.cfg.j2"
-      force: yes
-  - name: Building acmedns image
-    include_role:
-      name: dr.docker-container
-    vars:
-      drdc_name: acmedns
-      drdc_repo: https://github.com/joohoi/acme-dns.git
-      drdc_net_mode: 'host'
-      drdc_memory_limit: '100m'
-      drdc_volumes: 
-        - "{{_r_acmedns_data_dir}}:/var/lib/acme-dns"
-        - "{{_r_acmedns_config_dir}}:/etc/acme-dns:ro"
-  tags: ['acmedns']
-  when: '_r_acmedns == True'
-
-
-############################################################################################################
-######### AcmeDNS configuration
-############################################################################################################
+- name: Ensures that all requires paths exists
+  file:
+    state: directory
+    path: "{{fn}}"
+  loop: "{{_r_ensure_paths}}"
+  loop_control:
+    loop_var: fn
 
 
 - block:
-  - import_tasks: "tasks/register.yml"
-    when: "_r_register == True and loc_gen.subdomain is not defined"
-    tags: ["acmech", "acmech-register"]
-  
-  - pause:
-      prompt: |
-        Add record to your dns and press enter
-        
-        _acme-challenge.{{domain}}  CNAME  {{loc_gen.fulldomain}}
+    - block:
+        - block:
+            - name: Initialize registration process
+              uri: url="{{_r_acmedns_api}}/register" method=POST return_content=yes body_format=json status_code=201
+              register: reg_result
 
-  - command: "dig _acme-challenge.{{domain}} +short"
-    register: domain_check_result
-    failed_when: "loc_gen.fulldomain not in domain_check_result.stdout"
-    changed_when: False
+            - name: create directory for ansible custom facts
+              file: state=directory recurse=yes path=/etc/ansible/facts.d
 
-  - file:
-      state: touch
-      path: "{{_r_acmesh_log}}"
-    when: "_r_request == True"
+            - debug: var=reg_result.json
 
-  - name: Executing acme.sh 
-    docker_container:
-      name: acmesh
-      image: "madiedinro/acmesh"
-      env: 
-        ACMEDNS_UPDATE_URL: "{{_r_acmedns_api}}/update"
-        ACMEDNS_USERNAME: "{{loc_gen.username}}"
-        ACMEDNS_PASSWORD: "{{loc_gen.password}}"
-        ACMEDNS_SUBDOMAIN: "{{loc_gen.subdomain}}"
-      volumes: 
-        - "{{_r_acmesh_host_cert_root}}/{{domain}}/:{{_r_acmesh_dock_cert_root}}/{{domain}}"
-        - "{{_r_acmesh_log}}:/acme.sh/acme.sh.log"
-      # auto_remove: yes
-      cleanup: yes
-      detach: false
-      command: ' --issue -d {{item.domain}} -d "*.{{item.domain}}" --dns dns_acmedns --dnssleep 15 --force --log'
-    register: acmesh_result
-    when: "_r_request == True"
+            - template:
+                src: config.fact.j2
+                dest: "{{_r_reg_data}}"
+
+            - name: re-read facts after adding custom fact
+              setup: filter=ansible_local
+
+          vars:
+            res: "{{reg_result.json}}"
+            _facts_dict:
+              fulldomain: "{{res.fulldomain}}"
+              password: "{{res.password}}"
+              subdomain: "{{res.subdomain}}"
+              username: "{{res.username}}"
+          when: "loc_gen.subdomain is not defined"
+
+        - debug: var=loc_gen
+          
+        - pause:
+            prompt: |
+              *********************************************************
+
+              Add following records to DNS of your domain
+              
+              --------------------------------------------------------
+              
+              {{item.domain}}             A      SERVER_IP
+              *.{{item.domain}}           A      SERVER_IP
+              _acme-challenge.{{domain}}  CNAME  {{loc_gen.fulldomain}}
+
+              *********************************************************
+
+              SERVER_IP - replace "SERVER_IP" with 
+              accessible from internet IP of your server,
+              for example 8.8.8.8
+
+              *********************************************************
+        - name: checking dns
+          command: "dig _acme-challenge.{{item.domain}} +short"
+          register: domain_check_result
+          changed_when: False
+          failed_when: "loc_gen.fulldomain not in domain_check_result.stdout"
+          retries: 5
+          delay: 30
+
+        - fail:
+            msg: DNS record not found
+          when: "loc_gen.fulldomain not in domain_check_result.stdout"        
+      when: "_r_wildcard == True"
+
+    - wait_for:
+        host: 0.0.0.0
+        port: 80
+        delay: 0
+        timeout: 5
+        msg: "Timeout waiting for 80 to respond"
+      register: port_check
+      when: "_r_wildcard == False"
+      ignore_errors: yes
+
+    - name: Create a volume
+      docker_volume:
+        name: acmesh
+
+    # - debug:
+    #     msg: "{{cmd}}"
+    - file:
+        state: directory
+        path: "{{_r_cert_root}}/{{item.domain}}"
+
+    - name: Executing acme.sh 
+      docker_container:
+        name: acmesh-request
+        image: neilpang/acme.sh
+        env: "{{ _r_wildcard|ternary(acmedns_creds, {}) }}"
+        volumes: "{{vols}}"
+        cleanup: yes
+        detach: false
+        command: "{{cmd}}"
+        ports: "{{_r_wildcard|ternary([],[detect_ports]) }}"
+      register: acmesh_result
+      # failed_when: "'Cert success' not in acmesh_result.ansible_facts.docker_container.Output"
+
+    - debug: msg={{acmesh_result.ansible_facts.docker_container.Output.split('\n')}}
+
+    - docker_container:
+        name: acmesh-daemon
+        image: neilpang/acme.sh
+        restart_policy: on-failure
+        restart: yes
+        pull: yes
+        recreate: yes
+        env: "{{ _r_wildcard|ternary(acmedns_creds, {}) }}"
+        volumes: "{{vols}}"
+        command: daemon
+
   vars:
-    item: "{{_r_domains[0]}}"
+    cmd: " --issue {{_r_wildcard|ternary(_r_cmd_dns, _r_cmd_std)}} {{_r_cmd_dir}} {{_r_cmd_force}} "
+    expose_conf: "{{_r_bind_addr}}:80"
+    detect_ports: "{{ port_check.failed|ternary('80:80', expose_conf) }}"
+    item:
+      domain: "{{_r_domain}}"
+      subdomains: "{{_r_subdomains}}"
     loc_acmedns: "{{ ansible_local.acmedns|default({}) }}"
     loc_gen: "{{ loc_acmedns.general|default({}) }}"
-  tags: ['acmesh']
-
-- debug: msg={{acmesh_result.ansible_facts.docker_container.Output.split('\n')}}
+    vols:
+      - "{{_r_cert_root}}:/certs"
+      - "acmesh:/acme.sh"
+    acmedns_creds:
+      ACMEDNS_UPDATE_URL: "{{_r_acmedns_api|default('')}}/update"
+      ACMEDNS_USERNAME: "{{loc_gen.username|default('')}}"
+      ACMEDNS_PASSWORD: "{{loc_gen.password|default('')}}"
+      ACMEDNS_SUBDOMAIN: "{{loc_gen.subdomain|default('')}}"
+  
