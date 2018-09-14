@@ -97,7 +97,7 @@
     - docker_container:
         name: acmesh-daemon
         image: neilpang/acme.sh
-        restart_policy: on-failure
+        restart_policy: unless-stopped
         restart: yes
         labels: "{{_r_docker_labels}}"
         networks: "{{_r_docker_networks}}"
