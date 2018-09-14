@@ -78,6 +78,9 @@
         state: directory
         path: "{{_r_cert_root}}/{{item.domain}}"
 
+    - debug: 
+        msg: "Acme.sh cmd: {{cmd}} auto_ports: {{auto_ports}}"
+
     - name: Executing acme.sh 
       docker_container:
         name: acmesh-request
@@ -88,7 +91,7 @@
         cleanup: yes
         detach: false
         command: "{{cmd}}"
-        ports: "{{_r_wildcard|ternary([],[auto_ports]) }}"
+        ports: "{{ auto_ports }}"
       register: acmesh_result
       # failed_when: "'Cert success' not in acmesh_result.ansible_facts.docker_container.Output"
 
@@ -112,7 +115,7 @@
     auto_env: "{{ _r_wildcard|ternary(acmedns_creds, {}) }}"
     cmd: " --issue {{_r_wildcard|ternary(_r_cmd_dns, _r_cmd_std)}} {{_r_cmd_dir}} {{_r_cmd_log}} {{_r_cmd_force}} "
     expose_conf: "{{_r_bind_addr}}:80"
-    auto_ports: "{{ (port_check is failed)|ternary('80:80', expose_conf) }}"
+    auto_ports: "{{_r_wildcard|ternary([],[port_check is failed)|ternary('80:80', expose_conf)]) }}" "{{ ( }}"
     item:
       domain: "{{_r_domain}}"
       subdomains: "{{_r_subdomains}}"
