@@ -79,19 +79,23 @@
         path: "{{_r_cert_root}}/{{item.domain}}"
 
     - debug: 
-        msg: "Acme.sh cmd: {{cmd}} auto_ports: {{auto_ports}}"
+        msg: "Acme.sh cmd: {{cmd}} httpd_found: {{httpd_found}} auto_expose: {{auto_expose}}"
+
+    - docker_container:
+        name: acmesh-daemon
+        state: absent
 
     - name: Executing acme.sh 
       docker_container:
         name: acmesh-request
-        image: neilpang/acme.sh
-        env: "{{auto_env}}"
+        image: "{{_r_image}}"
+        env: "{{envs}}"
         volumes: "{{vols}}"
         networks: "{{_r_docker_networks}}"
         cleanup: yes
         detach: false
-        command: "{{cmd}}"
-        ports: "{{ auto_ports }}"
+        command: "{{ cmd }}"
+        ports: [ "{{ auto_expose }}" ]
       register: acmesh_result
       # failed_when: "'Cert success' not in acmesh_result.ansible_facts.docker_container.Output"
 
@@ -99,23 +103,24 @@
 
     - docker_container:
         name: acmesh-daemon
-        image: neilpang/acme.sh
+        image: "{{_r_image}}"
         restart_policy: unless-stopped
         restart: yes
         labels: "{{_r_docker_labels}}"
         networks: "{{_r_docker_networks}}"
-        ports: [ "{{expose_conf}}" ]
+        ports: [ "{{regular_expose}}" ]
         pull: yes
         recreate: yes
-        env: "{{auto_env}}"
+        env: "{{envs}}"
         volumes: "{{vols}}"
         command: daemon
 
   vars:
-    auto_env: "{{ _r_wildcard|ternary(acmedns_creds, {}) }}"
-    cmd: " --issue {{_r_wildcard|ternary(_r_cmd_dns, _r_cmd_std)}} {{_r_cmd_dir}} {{_r_cmd_log}} {{_r_cmd_force}} "
-    expose_conf: "{{_r_bind_addr}}:80"
-    auto_ports: "{{_r_wildcard|ternary([],[port_check is failed)|ternary('80:80', expose_conf)]) }}" "{{ ( }}"
+    cmd: " --issue {{_r_wildcard|ternary(_r_cmd_dns, _r_cmd_std)}} {{_r_cmd_files}} {{_r_cmd_log}} {{_r_cmd_force}} "
+    regular_expose: "{{_r_bind_addr}}:80"
+    world_expose: '0.0.0.0:80:80'
+    auto_expose: "{{  httpd_found|ternary(regular_expose, world_expose) }}"
+    httpd_found: "{{ not port_check is failed }}"
     item:
       domain: "{{_r_domain}}"
       subdomains: "{{_r_subdomains}}"
@@ -124,7 +129,7 @@
     vols:
       - "{{_r_cert_root}}:/certs"
       - "acmesh:/acme.sh"
-    acmedns_creds:
+    envs:
       ACMEDNS_UPDATE_URL: "{{_r_acmedns_api|default('')}}/update"
       ACMEDNS_USERNAME: "{{loc_gen.username|default('')}}"
       ACMEDNS_PASSWORD: "{{loc_gen.password|default('')}}"
