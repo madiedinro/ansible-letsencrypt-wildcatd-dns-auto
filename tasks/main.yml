@@ -85,6 +85,24 @@
         name: acmesh-daemon
         state: absent
 
+    - name: Checking SSL
+      docker_container:
+        name: acmesh-check
+        image: "{{_r_image}}"
+        volumes: "{{vols}}"
+        command: " --list"
+        networks: "{{_r_docker_networks}}"
+        cleanup: yes
+        # auto_remove: yes
+        detach: false
+      register: acmesh_list
+      changed_when: False
+
+    - debug: msg={{ acmesh_list.ansible_facts.docker_container }}
+
+    - set_fact:
+        certificate_exists: "{{_r_domain in acmesh_list.ansible_facts.docker_container.Output}}"
+
     - name: Executing acme.sh 
       docker_container:
         name: acmesh-request
@@ -97,9 +115,11 @@
         command: "{{ cmd }}"
         ports: [ "{{ auto_expose }}" ]
       register: acmesh_result
-      # failed_when: "'Cert success' not in acmesh_result.ansible_facts.docker_container.Output"
+      failed_when: "'Cert success' not in acmesh_result.ansible_facts.docker_container.Output"
+      when: "not certificate_exists or _r_force"
 
     - debug: msg={{acmesh_result.ansible_facts.docker_container.Output.split('\n')}}
+      when: not certificate_exists
 
     - docker_container:
         name: acmesh-daemon
