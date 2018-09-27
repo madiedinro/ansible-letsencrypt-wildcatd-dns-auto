@@ -81,11 +81,12 @@
     - debug: 
         msg: "Acme.sh cmd: {{cmd}} httpd_found: {{httpd_found}} auto_expose: {{auto_expose}}"
 
-    - docker_container:
+    - name: Removing renew daemon
+      docker_container:
         name: acmesh-daemon
         state: absent
 
-    - name: Checking SSL
+    - name: Executing acme.sh to check issued certificates
       docker_container:
         name: acmesh-check
         image: "{{_r_image}}"
@@ -103,7 +104,7 @@
     - set_fact:
         certificate_exists: "{{_r_domain in acmesh_list.ansible_facts.docker_container.Output}}"
 
-    - name: Executing acme.sh 
+    - name: Executing acme.sh for issue or renew
       docker_container:
         name: acmesh-request
         image: "{{_r_image}}"
@@ -119,9 +120,10 @@
       when: "not certificate_exists or _r_force"
 
     - debug: msg={{acmesh_result.ansible_facts.docker_container.Output.split('\n')}}
-      when: not certificate_exists
+      when: "not certificate_exists or _r_force"
 
-    - docker_container:
+    - name: Starting renew daemon
+      docker_container:
         name: acmesh-daemon
         image: "{{_r_image}}"
         restart_policy: unless-stopped
