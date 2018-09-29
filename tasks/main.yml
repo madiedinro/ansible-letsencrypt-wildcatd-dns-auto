@@ -104,23 +104,33 @@
     - set_fact:
         certificate_exists: "{{_r_domain in acmesh_list.ansible_facts.docker_container.Output}}"
 
-    - name: Executing acme.sh for issue or renew
-      docker_container:
-        name: acmesh-request
-        image: "{{_r_image}}"
-        env: "{{envs}}"
-        volumes: "{{vols}}"
-        networks: "{{_r_docker_networks}}"
-        cleanup: yes
-        detach: false
-        command: "{{ cmd }}"
-        ports: [ "{{ auto_expose }}" ]
-      register: acmesh_result
-      failed_when: "'Cert success' not in acmesh_result.ansible_facts.docker_container.Output"
+    - block:
+        - debug:
+            msg:
+              - "cmd: {{cmd}}"
+              - "vols: {{vols}}"
+              - "auto_expose: {{auto_expose}}"
+              - "envs: {{envs}}"
+        - name: Executing acme.sh for issue or renew
+          docker_container:
+            name: acmesh-request
+            image: "{{_r_image}}"
+            env: "{{envs}}"
+            volumes: "{{vols}}"
+            cleanup: yes
+            detach: false
+            command: "{{ cmd }}"
+            ports: [ "{{ auto_expose }}" ]
+          register: acmesh_result
+        
+        - debug: msg={{acmesh_result.ansible_facts.docker_container.Output.split('\n')}}
+
+        - fail:
+            msg: "Not success :("
+          when: "'Cert success' not in acmesh_result.ansible_facts.docker_container.Output"
+
       when: "not certificate_exists or _r_force"
 
-    - debug: msg={{acmesh_result.ansible_facts.docker_container.Output.split('\n')}}
-      when: "not certificate_exists or _r_force"
 
     - name: Starting renew daemon
       docker_container:
@@ -135,7 +145,8 @@
         recreate: yes
         env: "{{envs}}"
         volumes: "{{vols}}"
-        command: daemon
+        command: "daemon {{_r_cmd_files}} {{_r_cmd_log}}"
+
 
   vars:
     cmd: " --issue {{_r_wildcard|ternary(_r_cmd_dns, _r_cmd_std)}} {{_r_cmd_files}} {{_r_cmd_log}} {{_r_cmd_force}} "
