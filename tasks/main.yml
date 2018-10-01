@@ -101,8 +101,12 @@
 
     - debug: msg={{ acmesh_list.ansible_facts.docker_container }}
 
+    - stat: path={{_r_cert_root}}/{{_r_domain}}/{{_r_cert_fn}}
+      register: cert_stat
+
     - set_fact:
-        certificate_exists: "{{_r_domain in acmesh_list.ansible_facts.docker_container.Output}}"
+        certificate_listed: "{{_r_domain in acmesh_list.ansible_facts.docker_container.Output}}"
+        certificate_exists: "{{cert_stat.stat.exists}}"
 
     - block:
         - debug:
@@ -129,7 +133,7 @@
             msg: "Not success :("
           when: "'Cert success' not in acmesh_result.ansible_facts.docker_container.Output"
 
-      when: "not certificate_exists or _r_force"
+      when: "not certificate_exists or not certificate_listed or _r_force"
 
 
     - name: Starting renew daemon
