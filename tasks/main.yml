@@ -149,11 +149,10 @@
         recreate: yes
         env: "{{envs}}"
         volumes: "{{vols}}"
-        command: "daemon {{_r_cmd_files}} {{_r_cmd_log}}"
-
+        command: "daemon {{_r_cmd_files}} {{_r_cmd_logging}}"
 
   vars:
-    cmd: " --issue {{_r_wildcard|ternary(_r_cmd_dns, _r_cmd_std)}} {{_r_cmd_files}} {{_r_cmd_log}} {{_r_cmd_force}} "
+    cmd: " --issue {{_r_wildcard|ternary(_r_cmd_dns, _r_cmd_std)}} {{_r_cmd_files}} {{_r_cmd_logging}} {{_r_cmd_force}} "
     regular_expose: "{{_r_bind_addr}}:80"
     world_expose: '0.0.0.0:80:80'
     auto_expose: "{{  httpd_found|ternary(regular_expose, world_expose) }}"

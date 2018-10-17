@@ -4,6 +4,7 @@ _r_email:
 _r_wildcard: no
 _r_force: no
 _r_log: yes
+_r_debug: no
 _r_subdomains: ['www']
 
 _r_pause_services: []
