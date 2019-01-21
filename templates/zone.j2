@@ -6,7 +6,7 @@ Add following records to DNS of your domain
 
 {{item.domain}}             A      SERVER_IP
 *.{{item.domain}}           A      SERVER_IP
-_acme-challenge.{{domain}}  CNAME  {{loc_gen.fulldomain}}
+_acme-challenge.{{item.domain}}  CNAME  {{loc_gen.fulldomain}}
 
 *********************************************************
 

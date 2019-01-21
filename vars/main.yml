@@ -2,8 +2,7 @@
 _r_reg_data: /etc/ansible/facts.d/acmedns.fact
 _r_config_dir: /etc/acmesh
 _r_cert_root: "{{_r_config_dir}}/certs"
-_r_ensure_paths:
-  - "{{_r_config_dir}}"
+_r_ensure_paths: [ "{{_r_config_dir}}" ]
 _r_key_fn: "priv.key"
 _r_cert_fn: "cert.cer"
 _r_fullchain_fn: "fullchain.cer"

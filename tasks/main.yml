@@ -34,7 +34,10 @@
               username: "{{res.username}}"
           when: "loc_gen.subdomain is not defined"
 
-        - debug: var=loc_gen
+        - debug:
+            msg:
+              - '{{loc_gen}}'
+              - '{{item}}'
 
         - name: checking dns
           command: "dig _acme-challenge.{{item.domain}} +short"
@@ -48,15 +51,16 @@
                 prompt: "{{ lookup('template', 'zone.j2') }}"
                 
             - name: checking dns
-              command: "dig _acme-challenge.{{item.domain}} +short"
+              command: "{{cmd_dig_acme}}"
               register: domain_check_result
               changed_when: False
               failed_when: "False"
 
             - fail:
-                msg: DNS record not found
+                msg: "DNS record not found. Cmd: {{cmd_dig_acme}}, looking for {{loc_gen.fulldomain}}"
               when: "loc_gen.fulldomain not in domain_check_result.stdout"
-          
+          vars:
+            cmd_dig_acme: "dig _acme-challenge.{{item.domain}} +short"
           when: "loc_gen.fulldomain not in initial_domain_check.stdout"
 
       when: "_r_wildcard == True"

@@ -11,8 +11,6 @@ _r_pause_services: []
 _r_acmedns_host: auth.acme-dns.io
 _r_acmedns_api: https://auth.acme-dns.io
 _r_use_dns: no
-#_r_docker_networks: bridge
-#_r_docker_labels: {}
 _r_webroot: /var/www/html
 _r_bind_addr: 127.0.0.1:8011
 _r_check_addr: 127.0.0.1:80
