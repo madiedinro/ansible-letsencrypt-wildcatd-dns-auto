@@ -48,7 +48,7 @@
         # ##### DNS zone checking 
         - block:
             - pause:
-                prompt: "{{ lookup('template', 'zone.j2') }}"
+                prompt: "{{ lookup('template', 'zone.j2') }}\nPress any key to continue"
                 
             - name: checking dns
               command: "{{cmd_dig_acme}}"
