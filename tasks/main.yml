@@ -47,8 +47,8 @@
         
         # ##### DNS zone checking 
         - block:
-            - pause:
-                prompt: "{{ lookup('template', 'zone.j2') }}\nPress any key to continue"
+            # - pause:
+            #     prompt: "{{ lookup('template', 'zone.j2') }}\nPress any key to continue"
                 
             - name: checking dns
               command: "{{cmd_dig_acme}}"
@@ -56,9 +56,9 @@
               changed_when: False
               failed_when: "False"
 
-            - fail:
-                msg: "DNS record not found. Cmd: {{cmd_dig_acme}}, looking for {{loc_gen.fulldomain}}"
-              when: "loc_gen.fulldomain not in domain_check_result.stdout"
+            # - fail:
+            #     msg: "DNS record not found. Cmd: {{cmd_dig_acme}}, looking for {{loc_gen.fulldomain}}"
+            #   when: "loc_gen.fulldomain not in domain_check_result.stdout"
           vars:
             cmd_dig_acme: "dig _acme-challenge.{{item.domain}} +short"
           when: "loc_gen.fulldomain not in initial_domain_check.stdout"
@@ -169,9 +169,11 @@
     vols:
       - "{{_r_cert_root}}:/certs"
       - "acmesh:/acme.sh"
-    envs:
-      ACMEDNS_UPDATE_URL: "{{_r_acmedns_api|default('')}}/update"
-      ACMEDNS_USERNAME: "{{loc_gen.username|default('')}}"
-      ACMEDNS_PASSWORD: "{{loc_gen.password|default('')}}"
-      ACMEDNS_SUBDOMAIN: "{{loc_gen.subdomain|default('')}}"
+    envs: "{{_r_dns_envs}}"
+      # AWS_ACCESS_KEY_ID: 
+      # AWS_SECRET_ACCESS_KEY: 
+      # ACMEDNS_UPDATE_URL: "{{_r_acmedns_api|default('')}}/update"
+      # ACMEDNS_USERNAME: "{{loc_gen.username|default('')}}"
+      # ACMEDNS_PASSWORD: "{{loc_gen.password|default('')}}"
+      # ACMEDNS_SUBDOMAIN: "{{loc_gen.subdomain|default('')}}"
   

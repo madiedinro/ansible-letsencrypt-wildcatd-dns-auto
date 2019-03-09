@@ -15,3 +15,5 @@ _r_webroot: /var/www/html
 _r_bind_addr: 127.0.0.1:8011
 _r_check_addr: 127.0.0.1:80
 _r_image: neilpang/acme.sh
+_r_dns_provider: dns_acmedns
+_r_dns_envs: {}

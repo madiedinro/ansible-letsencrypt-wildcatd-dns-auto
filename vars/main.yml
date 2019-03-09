@@ -7,7 +7,7 @@ _r_key_fn: "priv.key"
 _r_cert_fn: "cert.cer"
 _r_fullchain_fn: "fullchain.cer"
 _r_cmd_files: "--key-file /certs/{{item.domain}}/{{_r_key_fn}} --cert-file /certs/{{item.domain}}/{{_r_cert_fn}} --fullchain-file /certs/{{item.domain}}/{{_r_fullchain_fn}}"
-_r_cmd_dns: ' --dns dns_acmedns --dnssleep 15 -d {{item.domain}} -d "*.{{item.domain}}" '
+_r_cmd_dns: ' --dns {{_r_dns_provider}} --dnssleep 15 -d {{item.domain}} -d "*.{{item.domain}}" '
 _r_cmd_std: ' --standalone -d {{item.domain}} {% for sd in item.subdomains %} -d {{sd}}.{{item.domain}} {% endfor %}'
 _r_cmd_force: "{{_r_force|ternary(' --force', '')}}"
 _r_cmd_logging: "{{_r_log|ternary(' --log', '')}} {{_r_debug|ternary(' --debug', '')}}"
